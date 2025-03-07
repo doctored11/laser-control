@@ -12,7 +12,7 @@ export default function TabLayout() {
         }} 
       />
       <Tabs.Screen 
-        name="laser-control" 
+        name="LaserControlScreen" 
         options={{ 
           title: 'Лазер', 
           tabBarIcon: ({ color, size }) => <Ionicons name="flash" size={size} color={color} />
