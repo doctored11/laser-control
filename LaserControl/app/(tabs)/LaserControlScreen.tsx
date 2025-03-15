@@ -1,7 +1,7 @@
 import React from "react";
 import { createMaterialTopTabNavigator } from "@react-navigation/material-top-tabs";
-import SlidersScreen from "../SlidersControlScreen";
-import ColorWheelScreen from "../ColorWheelScreen";
+import SlidersScreen from "../controlsScreens/SlidersControlScreen";
+import ColorWheelScreen from "../controlsScreens/ColorWheelScreen";
 
 const Tab = createMaterialTopTabNavigator();
 
