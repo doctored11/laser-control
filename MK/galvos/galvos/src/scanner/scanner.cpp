@@ -1,33 +1,56 @@
 #include <Arduino.h>
+#include <SPI.h>
 #include "scanner.h"
 
-const int X_DAC = 25;  
-const int Y_DAC = 26;  
+#define CS_PIN 2
+#define MOSI_PIN 27
+#define SCK_PIN 14
 
-int SCAN_RATE = 1000;  // по идее надо 10_000 -> 20_000
-//купить Цап
+static const ILDAPoint* scan_points = nullptr;
+static size_t scan_point_count = 0;
+static volatile size_t current_index = 0;
+static hw_timer_t* timer = nullptr;
 
-const int points[][2] = {
-    {100, 100}, {200, 100}, 
-    {200, 200}, {100, 200}, 
-    {100, 100} 
-};
+static void setDAC(uint8_t channel, uint16_t value) {
+    if (value > 4095) value = 4095;
 
-const int numPoints = sizeof(points) / sizeof(points[0]);
-volatile int currentPoint = 0;  
+    uint16_t command = 0b00110000; 
+    if (channel == 1) command |= 0b10000000; 
+    command |= (value >> 8) & 0x0F;
 
-hw_timer_t *timer = NULL;
-
-void IRAM_ATTR onTimer() {
-    dacWrite(X_DAC, points[currentPoint][0]);
-    dacWrite(Y_DAC, points[currentPoint][1]);
-    currentPoint = (currentPoint + 1) % numPoints;
+    digitalWrite(CS_PIN, LOW);
+    SPI.transfer(command);
+    SPI.transfer(value & 0xFF);
+    digitalWrite(CS_PIN, HIGH);
 }
 
-void scanner_init() {
-    timer = timerBegin(0, 80, true);  
+void IRAM_ATTR onTimer() {
+    if (!scan_points || scan_point_count == 0) return;
+    setDAC(0, scan_points[current_index].x);
+    setDAC(1, scan_points[current_index].y);
+    current_index = (current_index + 1) % scan_point_count;
+}
+
+void scanner_init(uint32_t scan_rate_hz) {
+    pinMode(CS_PIN, OUTPUT);
+    digitalWrite(CS_PIN, HIGH);
+    SPI.begin(SCK_PIN, -1, MOSI_PIN, CS_PIN);
+
+    timer = timerBegin(0, 80, true);
     timerAttachInterrupt(timer, &onTimer, true);
-    timerAlarmWrite(timer, 1000000 / SCAN_RATE, true);  
-    timerAlarmEnable(timer);
-    timerRestart(timer);  
+    timerAlarmWrite(timer, 1000000 / scan_rate_hz, true);
+}
+
+void scanner_set_points(const ILDAPoint* points_array, size_t num_points) {
+    scan_points = points_array;
+    scan_point_count = num_points;
+    current_index = 0;
+}
+
+void scanner_start() {
+    if (timer) timerAlarmEnable(timer);
+}
+
+void scanner_stop() {
+    if (timer) timerAlarmDisable(timer);
 }
